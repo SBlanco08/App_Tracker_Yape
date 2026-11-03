@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Yape Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f8fafc; 
+            -webkit-tap-highlight-color: transparent;
+            overscroll-behavior-y: none;
+        }
+        .no-select { 
+            user-select: none; 
+            -webkit-user-select: none; 
+        }
+        /* Ocultar barra de desplazamiento para un look más nativo */
+        ::-webkit-scrollbar { display: none; width: 0px; background: transparent; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Ajustes para el Scroll Snap (Ruedas iOS) */
+        .wheel-container {
+            mask-image: linear-gradient(to bottom, transparent, black 30%, black 70%, transparent);
+            -webkit-mask-image: linear-gradient(to bottom, transparent, black 30%, black 70%, transparent);
+        }
+        .wheel-col {
+            position: relative;
+            scroll-behavior: smooth;
+        }
+        .snap-item {
+            scroll-snap-align: center;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex justify-center bg-slate-900">
+
+    <!-- Contenedor Principal (Simula pantalla de celular) -->
+    <div class="w-full max-w-md bg-white min-h-[100dvh] relative shadow-2xl overflow-hidden flex flex-col mx-auto">
+        
+        <!-- Sidebar Overlay -->
+        <div id="sidebar-overlay" class="fixed absolute inset-0 bg-black/50 z-40 hidden transition-opacity opacity-0"></div>
+        
+        <!-- Sidebar -->
+        <aside id="sidebar" class="absolute top-0 left-0 h-full w-3/4 max-w-[300px] bg-white z-50 transform -translate-x-full transition-transform duration-300 flex flex-col shadow-2xl">
+            <div class="p-6 bg-purple-600 text-white flex items-center gap-3">
+                <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <i class="ph ph-wallet text-2xl"></i>
+                </div>
+                <div>
+                    <h2 class="font-bold text-lg">Menú Principal</h2>
+                    <p class="text-xs text-purple-200">Tracker Yape</p>
+                </div>
+            </div>
+            <nav class="flex-1 p-4 space-y-2">
+                <button id="btn-nav-inicio" class="w-full flex items-center gap-3 p-3 rounded-lg bg-purple-50 text-purple-700 font-semibold transition-colors">
+                    <i class="ph ph-house text-xl"></i> Inicio
+                </button>
+                <button id="btn-nav-cat" class="w-full flex items-center gap-3 p-3 rounded-lg text-slate-600 hover:bg-slate-50 font-medium transition-colors">
+                    <i class="ph ph-list-dashes text-xl"></i> Categorías
+                </button>
+            </nav>
+            <div class="p-4 border-t border-slate-100">
+                <button id="btn-clear-history" class="w-full flex items-center justify-center gap-2 p-3 rounded-lg text-red-600 bg-red-50 hover:bg-red-100 font-medium transition-colors">
+                    <i class="ph ph-trash text-xl"></i> Limpiar Historial
+                </button>
+            </div>
+        </aside>
+
+        <!-- Header Dashboard -->
+        <header class="bg-purple-600 text-white p-4 shadow-md flex justify-between items-center z-10 sticky top-0">
+            <div class="flex items-center gap-2">
+                <button id="btn-open-sidebar" class="p-1 hover:bg-purple-700 rounded-lg transition-colors active:scale-95">
+                    <i class="ph ph-list text-2xl"></i>
+                </button>
+                <h1 class="text-xl font-bold ml-1">Gastos Yape</h1>
+            </div>
+            <button id="btn-export-csv" class="p-2 bg-purple-700 hover:bg-purple-800 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium">
+                <i class="ph ph-download-simple text-lg"></i>
+                <span>CSV</span>
+            </button>
+        </header>
+
+        <!-- Vista: Lista de Gastos (Dashboard) -->
+        <main class="flex-1 overflow-y-auto p-4 bg-slate-50 pb-24" id="expenses-view">
+            <div id="expenses-list" class="space-y-3"></div>
+            
+            <div id="empty-state" class="hidden flex flex-col items-center justify-center h-full text-slate-400 mt-20">
+                <i class="ph ph-receipt text-6xl mb-2 opacity-50"></i>
+                <p>No hay gastos registrados aún.</p>
+            </div>
+        </main>
+
+        <!-- Vista: Categorías -->
+        <main class="flex-1 overflow-y-auto p-4 bg-slate-50 pb-24 hidden" id="categories-view">
+            <div class="mb-4">
+                <h2 class="text-lg font-bold text-slate-700">Mis Categorías</h2>
+                <p class="text-sm text-slate-500">Toca una categoría para editarla</p>
+            </div>
+            <div id="categories-list-container" class="space-y-3">
+                <!-- Categorías se inyectan aquí -->
+            </div>
+        </main>
+
+        <!-- Botón Flotante (Inicio) -->
+        <button id="fab-expense" class="absolute bottom-6 right-6 w-14 h-14 bg-purple-600 text-white rounded-full shadow-lg flex items-center justify-center text-3xl hover:bg-purple-700 active:scale-95 transition-all z-20">
+            <i class="ph ph-plus"></i>
+        </button>
+
+        <!-- Botón Flotante (Categorías) -->
+        <button id="fab-category" class="hidden absolute bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-lg flex items-center justify-center text-3xl hover:bg-indigo-700 active:scale-95 transition-all z-20">
+            <i class="ph ph-plus"></i>
+        </button>
+
+        <!-- Action Sheet Modal (Opciones de Gasto) -->
+        <div id="action-sheet" class="absolute inset-0 bg-black/60 z-50 flex items-end justify-center transition-opacity duration-300 hidden opacity-0">
+            <div id="action-sheet-content" class="bg-white w-full rounded-t-2xl p-6 shadow-2xl transform transition-transform duration-300 translate-y-full flex flex-col gap-3 relative pb-10">
+                <h3 class="text-center text-slate-500 font-semibold mb-2 text-sm uppercase tracking-wide">Opciones de Registro</h3>
+                <button id="btn-edit-expense" class="w-full bg-slate-50 hover:bg-slate-100 text-slate-800 font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-colors">
+                    <i class="ph ph-pencil-simple text-xl"></i> Editar Gasto
+                </button>
+                <button id="btn-delete-expense" class="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-colors">
+                    <i class="ph ph-trash text-xl"></i> Eliminar Registro
+                </button>
+                <button id="btn-cancel-action" class="w-full bg-white border border-slate-200 text-slate-600 font-bold py-4 rounded-xl mt-2 active:scale-95 transition-all">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal de Ingreso/Edición (Selector de Ruedas) -->
+        <div id="entry-modal" class="absolute inset-0 bg-black/60 z-50 flex items-center justify-center transition-opacity duration-300 hidden opacity-0 p-4">
+            
+            <div id="entry-modal-content" class="bg-white w-full max-w-[340px] rounded-[24px] flex flex-col transform transition-transform duration-300 translate-y-full shadow-2xl">
+                <div class="flex justify-between items-center p-4 border-b border-slate-100">
+                    <button id="btn-close-modal" class="text-slate-500 hover:text-slate-800 p-2 rounded-full hover:bg-slate-100 transition-colors">
+                        <i class="ph ph-x text-2xl"></i>
+                    </button>
+                    <h2 id="modal-title" class="font-bold text-lg text-slate-800">Registrar</h2>
+                    <div class="w-10"></div> <!-- Espaciador -->
+                </div>
+
+                <div class="flex flex-col px-6 pb-6 pt-2 overflow-hidden flex-1">
+                    <!-- Display Monto Grande -->
+                    <div id="display-container" class="flex justify-center items-center py-4 mb-4 text-red-600 transition-colors duration-300 text-5xl font-bold tracking-tight">
+                        <span id="display-sign" class="mr-1">-</span>
+                        <span class="mr-1">S/</span>
+                        <span id="display-soles">0</span>
+                        <span class="mx-1">.</span>
+                        <span id="display-centimos">00</span>
+                    </div>
+
+                    <!-- Contenedor Ruedas iOS -->
+                    <div class="relative bg-slate-50 rounded-2xl h-48 mb-6 overflow-hidden wheel-container shadow-inner border border-slate-200 no-select">
+                        <!-- Fade horizontal en los bordes -->
+                        <div class="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-slate-50 to-transparent z-10 pointer-events-none rounded-l-2xl"></div>
+                        <div class="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-slate-50 to-transparent z-10 pointer-events-none rounded-r-2xl"></div>
+                        
+                        <!-- Selector Highlights (Líneas horizontales centrales) -->
+                        <div class="absolute top-1/2 left-0 w-full h-[50px] -translate-y-1/2 border-t-2 border-b-2 border-purple-200/50 bg-purple-500/5 pointer-events-none z-0"></div>
+                        
+                        <div class="flex h-full w-full relative z-0">
+                            <!-- Columna Soles -->
+                            <div id="col-soles" class="flex-1 h-full overflow-y-auto snap-y snap-mandatory no-scrollbar wheel-col py-[71px] text-center" style="scroll-behavior: smooth;">
+                                <!-- Items inyectados vía JS -->
+                            </div>
+
+                            <!-- Columna Céntimos -->
+                            <div id="col-centimos" class="flex-1 h-full overflow-y-auto snap-y snap-mandatory no-scrollbar wheel-col py-[71px] text-center border-l border-r border-slate-200/50" style="scroll-behavior: smooth;">
+                                <!-- Items inyectados vía JS -->
+                            </div>
+
+                            <!-- Columna Tipo (Pagado/Recibido) -->
+                            <div id="col-tipo" class="flex-1 h-full overflow-y-auto snap-y snap-mandatory no-scrollbar wheel-col py-[71px] text-center" style="scroll-behavior: smooth;">
+                                <div class="snap-item h-[50px] flex items-center justify-center snap-center text-lg font-medium text-slate-400 transition-all duration-150" data-value="Pagado">Pagado</div>
+                                <div class="snap-item h-[50px] flex items-center justify-center snap-center text-lg font-medium text-slate-400 transition-all duration-150" data-value="Recibido">Recibido</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dropdown Concepto -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-slate-600 mb-2">Concepto</label>
+                        <div class="relative">
+                            <select id="category-select" class="w-full appearance-none bg-slate-50 border border-slate-300 text-slate-800 py-3 px-4 rounded-xl leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent font-medium text-lg shadow-sm">
+                                <!-- Opciones inyectadas dinámicamente -->
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                                <i class="ph ph-caret-down text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botón Registrar -->
+                    <button id="btn-save-expense" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-4 rounded-xl shadow-lg shadow-purple-200 active:scale-[0.98] transition-all text-lg flex items-center justify-center gap-2 mt-auto">
+                        <i class="ph ph-check-circle text-2xl"></i> Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Toast -->
+        <div id="toast" class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-xl transition-opacity duration-300 opacity-0 pointer-events-none z-[100] flex items-center gap-2">
+            <i class="ph ph-info text-xl"></i>
+            <span id="toast-message">Mensaje</span>
+        </div>
+
+    </div>
+
+    <!-- Script de lógica -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Variables de Estado
+            let soles = 0;
+            let centimos = 0;
+            let tipoMovimiento = 'Pagado';
+            let expenses = [];
+            let categories = [];
+            let editingExpenseId = null;
+            let selectedActionExpenseId = null;
+
+            // Elementos DOM principales
+            const displaySoles = document.getElementById('display-soles');
+            const displayCentimos = document.getElementById('display-centimos');
+            const displaySign = document.getElementById('display-sign');
+            const displayContainer = document.getElementById('display-container');
+            
+            const colSoles = document.getElementById('col-soles');
+            const colCentimos = document.getElementById('col-centimos');
+            const colTipo = document.getElementById('col-tipo');
+            const categorySelect = document.getElementById('category-select');
+
+            const expensesView = document.getElementById('expenses-view');
+            const expensesList = document.getElementById('expenses-list');
+            const emptyState = document.getElementById('empty-state');
+            
+            const categoriesView = document.getElementById('categories-view');
+            const categoriesListContainer = document.getElementById('categories-list-container');
+
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebar-overlay');
+            const actionSheet = document.getElementById('action-sheet');
+            const actionSheetContent = document.getElementById('action-sheet-content');
+            const entryModal = document.getElementById('entry-modal');
+            const toast = document.getElementById('toast');
+
+            // Botones de Navegación
+            const btnNavInicio = document.getElementById('btn-nav-inicio');
+            const btnNavCat = document.getElementById('btn-nav-cat');
+            const fabExpense = document.getElementById('fab-expense');
+            const fabCategory = document.getElementById('fab-category');
+
+            // --- INICIALIZACIÓN ---
+            initApp();
+
+            function initApp() {
+                loadCategories();
+                loadExpenses();
+                buildWheels();
+                attachEventListeners();
+                renderExpenses();
+                renderCategories();
+                
+                // Abrir la ventana de registro automáticamente al iniciar la app
+                setTimeout(() => {
+                    openModal();
+                }, 300);
+            }
+
+            // --- CONFIGURACIÓN DE EVENTOS ---
+            function attachEventListeners() {
+                // Sidebar
+                document.getElementById('btn-open-sidebar').addEventListener('click', openSidebar);
+                sidebarOverlay.addEventListener('click', closeSidebar);
+                btnNavInicio.addEventListener('click', () => { showView('inicio'); closeSidebar(); });
+                btnNavCat.addEventListener('click', () => { showView('categorias'); closeSidebar(); });
+                document.getElementById('btn-clear-history').addEventListener('click', confirmClearHistory);
+
+                // FABs y Modal
+                fabExpense.addEventListener('click', () => openModal());
+                fabCategory.addEventListener('click', promptNewCategory);
+                document.getElementById('btn-close-modal').addEventListener('click', closeModal);
+                document.getElementById('btn-save-expense').addEventListener('click', saveExpense);
+
+                // Action Sheet
+                document.getElementById('btn-cancel-action').addEventListener('click', closeActionSheet);
+                document.getElementById('btn-delete-expense').addEventListener('click', deleteExpense);
+                document.getElementById('btn-edit-expense').addEventListener('click', editExpense);
+
+                // Exportar
+                document.getElementById('btn-export-csv').addEventListener('click', exportCSV);
+
+                // Ruedas de scroll
+                colSoles.addEventListener('scroll', () => handleWheelScroll(colSoles, 'soles'));
+                colCentimos.addEventListener('scroll', () => handleWheelScroll(colCentimos, 'centimos'));
+                colTipo.addEventListener('scroll', () => handleWheelScroll(colTipo, 'tipo'));
+            }
+
+            // --- MANEJO DE VISTAS ---
+            function showView(view) {
+                if (view === 'inicio') {
+                    expensesView.classList.remove('hidden');
+                    categoriesView.classList.add('hidden');
+                    fabExpense.classList.remove('hidden');
+                    fabCategory.classList.add('hidden');
+                    
+                    btnNavInicio.classList.add('bg-purple-50', 'text-purple-700');
+                    btnNavInicio.classList.remove('text-slate-600', 'hover:bg-slate-50');
+                    btnNavCat.classList.add('text-slate-600', 'hover:bg-slate-50');
+                    btnNavCat.classList.remove('bg-purple-50', 'text-purple-700');
+                } else if (view === 'categorias') {
+                    expensesView.classList.add('hidden');
+                    categoriesView.classList.remove('hidden');
+                    fabExpense.classList.add('hidden');
+                    fabCategory.classList.remove('hidden');
+                    
+                    btnNavCat.classList.add('bg-purple-50', 'text-purple-700');
+                    btnNavCat.classList.remove('text-slate-600', 'hover:bg-slate-50');
+                    btnNavInicio.classList.add('text-slate-600', 'hover:bg-slate-50');
+                    btnNavInicio.classList.remove('bg-purple-50', 'text-purple-700');
+                }
+            }
+
+            function openSidebar() {
+                sidebar.classList.remove('-translate-x-full');
+                sidebarOverlay.classList.remove('hidden');
+                setTimeout(() => sidebarOverlay.classList.remove('opacity-0'), 10);
+            }
+
+            function closeSidebar() {
+                sidebar.classList.add('-translate-x-full');
+                sidebarOverlay.classList.add('opacity-0');
+                setTimeout(() => sidebarOverlay.classList.add('hidden'), 300);
+            }
+
+            // --- RUEDAS iOS (WHEELS) ---
+            function buildWheels() {
+                // Soles: 0 a 999
+                let solesHtml = '';
+                for (let i = 0; i <= 999; i++) {
+                    solesHtml += `<div class="snap-item h-[50px] flex items-center justify-center snap-center text-lg font-medium text-slate-400 transition-all duration-150" data-value="${i}">${i}</div>`;
+                }
+                colSoles.innerHTML = solesHtml;
+
+                // Céntimos: 00 a 90
+                let centimosHtml = '';
+                for (let i = 0; i < 100; i += 10) {
+                    const val = i.toString().padStart(2, '0');
+                    centimosHtml += `<div class="snap-item h-[50px] flex items-center justify-center snap-center text-lg font-medium text-slate-400 transition-all duration-150" data-value="${i}">${val}</div>`;
+                }
+                colCentimos.innerHTML = centimosHtml;
+                
+                // Forzar inicialización de clases centrales
+                setTimeout(() => {
+                    handleWheelScroll(colSoles, 'soles');
+                    handleWheelScroll(colCentimos, 'centimos');
+                    handleWheelScroll(colTipo, 'tipo');
+                }, 100);
+            }
+
+            function handleWheelScroll(col, type) {
+                const items = col.querySelectorAll('.snap-item');
+                // Posición central del contenedor visible
+                const colCenter = col.scrollTop + (col.clientHeight / 2);
+                
+                let closestItem = null;
+                let minDistance = Infinity;
+
+                items.forEach(item => {
+                    // Posición central del item respecto al padre desplazable
+                    const itemCenter = item.offsetTop + (item.offsetHeight / 2);
+                    const distance = Math.abs(colCenter - itemCenter);
+                    
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestItem = item;
+                    }
+                });
+
+                if (!closestItem) return;
+
+                // Resetear estilos visuales de todos
+                items.forEach(i => {
+                    i.classList.remove('text-3xl', 'text-2xl', 'text-xl', 'font-bold', 'text-slate-800', 'text-red-600', 'text-emerald-600');
+                    i.classList.add('text-lg', 'text-slate-400');
+                });
+                
+                // Aplicar estilo al seleccionado
+                closestItem.classList.remove('text-lg', 'text-slate-400');
+                closestItem.classList.add('font-bold');
+                
+                // Actualizar valores lógicos y aplicar tamaños dinámicos
+                const val = closestItem.dataset.value;
+                if (type === 'soles') {
+                    soles = parseInt(val);
+                    closestItem.classList.add('text-slate-800', 'text-3xl');
+                } else if (type === 'centimos') {
+                    centimos = parseInt(val);
+                    closestItem.classList.add('text-slate-800', 'text-3xl');
+                } else if (type === 'tipo') {
+                    tipoMovimiento = val;
+                    closestItem.classList.add('text-xl'); // Un poco más pequeño
+                    if (tipoMovimiento === 'Pagado') {
+                        closestItem.classList.add('text-red-600');
+                    } else {
+                        closestItem.classList.add('text-emerald-600');
+                    }
+                }
+                
+                updateMainDisplay();
+            }
+
+            function updateMainDisplay() {
+                displaySoles.textContent = soles;
+                displayCentimos.textContent = centimos.toString().padStart(2, '0');
+                
+                if (tipoMovimiento === 'Pagado') {
+                    displaySign.textContent = '-';
+                    displayContainer.classList.remove('text-emerald-600');
+                    displayContainer.classList.add('text-red-600');
+                } else {
+                    displaySign.textContent = '+';
+                    displayContainer.classList.remove('text-red-600');
+                    displayContainer.classList.add('text-emerald-600');
+                }
+            }
+
+            function setWheelValue(col, val) {
+                const items = col.querySelectorAll('.snap-item');
+                for(let item of items) {
+                    if(item.dataset.value == val.toString()) {
+                        col.scrollTop = item.offsetTop - (col.clientHeight / 2) + (item.offsetHeight / 2);
+                        break;
+                    }
+                }
+            }
+
+            // --- GESTIÓN DE MODAL ---
+            function openModal(editData = null) {
+                entryModal.classList.remove('hidden');
+                
+                // Pequeño delay para la animación
+                requestAnimationFrame(() => {
+                    entryModal.classList.remove('opacity-0');
+                    document.getElementById('entry-modal-content').classList.remove('translate-y-full');
+                });
+
+                if (editData) {
+                    document.getElementById('modal-title').textContent = "Editar Gasto";
+                    editingExpenseId = editData.id;
+                    
+                    let eSoles = Math.floor(editData.amount);
+                    let eCentimos = Math.round((editData.amount - eSoles) * 100);
+                    
+                    // Necesario setTimeout para que el modal renderice y calcule alturas
+                    setTimeout(() => {
+                        setWheelValue(colSoles, eSoles);
+                        setWheelValue(colCentimos, eCentimos);
+                        setWheelValue(colTipo, editData.type);
+                        categorySelect.value = editData.category;
+                    }, 50);
+                } else {
+                    document.getElementById('modal-title').textContent = "Registrar Gasto";
+                    editingExpenseId = null;
+                    setTimeout(() => {
+                        setWheelValue(colSoles, 0);
+                        setWheelValue(colCentimos, 0);
+                        setWheelValue(colTipo, 'Pagado');
+                        if (categories.length > 0) categorySelect.selectedIndex = 0;
+                    }, 50);
+                }
+            }
+
+            function closeModal() {
+                entryModal.classList.add('opacity-0');
+                document.getElementById('entry-modal-content').classList.add('translate-y-full');
+                setTimeout(() => {
+                    entryModal.classList.add('hidden');
+                }, 300);
+            }
+
+            // --- LÓGICA DE GASTOS ---
+            function saveExpense() {
+                if (soles === 0 && centimos === 0) {
+                    showToast("El monto debe ser mayor a 0");
+                    return;
+                }
+
+                const amount = soles + (centimos / 100);
+                const category = categorySelect.value;
+                
+                if (editingExpenseId) {
+                    const expIndex = expenses.findIndex(e => e.id === editingExpenseId);
+                    if(expIndex > -1) {
+                        expenses[expIndex].amount = amount;
+                        expenses[expIndex].category = category;
+                        expenses[expIndex].type = tipoMovimiento;
+                    }
+                    showToast("Registro actualizado");
+                } else {
+                    const now = new Date();
+                    let hours = now.getHours();
+                    let minutes = now.getMinutes();
+                    const ampm = hours >= 12 ? 'PM' : 'AM';
+                    hours = hours % 12;
+                    hours = hours ? hours : 12; 
+                    minutes = minutes < 10 ? '0' + minutes : minutes;
+                    const timeString = `${hours}:${minutes} ${ampm}`;
+                    
+                    const expense = {
+                        id: Date.now().toString(),
+                        amount: amount,
+                        category: category,
+                        type: tipoMovimiento,
+                        date: now.toISOString(),
+                        formattedDate: now.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' }) + ' - ' + timeString
+                    };
+
+                    expenses.unshift(expense); 
+                    showToast("Gasto registrado");
+                }
+
+                persistExpenses();
+                renderExpenses();
+                closeModal();
+            }
+
+            function loadExpenses() {
+                const saved = localStorage.getItem('yape_expenses_v2');
+                if (saved) {
+                    expenses = JSON.parse(saved);
+                }
+            }
+
+            function persistExpenses() {
+                localStorage.setItem('yape_expenses_v2', JSON.stringify(expenses));
+            }
+
+            function renderExpenses() {
+                expensesList.innerHTML = '';
+
+                if (expenses.length === 0) {
+                    emptyState.classList.remove('hidden');
+                } else {
+                    emptyState.classList.add('hidden');
+                    
+                    expenses.forEach(exp => {
+                        const card = document.createElement('div');
+                        card.className = "bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center active:scale-[0.98] transition-transform cursor-pointer";
+                        card.onclick = () => openActionSheet(exp.id);
+                        
+                        const firstChar = exp.category.charAt(0);
+                        const hasEmoji = /\p{Extended_Pictographic}/u.test(firstChar);
+                        const displayName = hasEmoji ? exp.category.substring(1).trim() : exp.category;
+                        const emoji = hasEmoji ? firstChar : '🏷️';
+
+                        const isIncome = exp.type === 'Recibido';
+                        const amountColor = isIncome ? 'text-emerald-600' : 'text-red-600';
+                        const amountSign = isIncome ? '+' : '-';
+
+                        card.innerHTML = `
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-2xl shadow-inner">
+                                    ${emoji}
+                                </div>
+                                <div>
+                                    <p class="font-bold text-slate-800">${displayName}</p>
+                                    <p class="text-xs font-medium text-slate-500">${exp.formattedDate}</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="font-bold text-lg ${amountColor}">${amountSign}S/ ${exp.amount.toFixed(2)}</p>
+                                <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">${exp.type}</p>
+                            </div>
+                        `;
+                        expensesList.appendChild(card);
+                    });
+                }
+            }
+
+            // --- ACTION SHEET ---
+            function openActionSheet(id) {
+                selectedActionExpenseId = id;
+                actionSheet.classList.remove('hidden');
+                setTimeout(() => {
+                    actionSheet.classList.remove('opacity-0');
+                    actionSheetContent.classList.remove('translate-y-full');
+                }, 10);
+            }
+
+            function closeActionSheet() {
+                actionSheet.classList.add('opacity-0');
+                actionSheetContent.classList.add('translate-y-full');
+                setTimeout(() => {
+                    actionSheet.classList.add('hidden');
+                    selectedActionExpenseId = null;
+                }, 300);
+            }
+
+            function deleteExpense() {
+                if (!selectedActionExpenseId) return;
+                expenses = expenses.filter(e => e.id !== selectedActionExpenseId);
+                persistExpenses();
+                renderExpenses();
+                closeActionSheet();
+                showToast("Registro eliminado");
+            }
+
+            function editExpense() {
+                if (!selectedActionExpenseId) return;
+                const exp = expenses.find(e => e.id === selectedActionExpenseId);
+                if (exp) {
+                    closeActionSheet();
+                    setTimeout(() => openModal(exp), 300);
+                }
+            }
+
+            function confirmClearHistory() {
+                // Como las alertas nativas a veces se bloquean en entornos iframe, usamos confirm estándar
+                // pero si falla lo forzamos.
+                try {
+                    if (window.confirm("¿Estás seguro de que deseas borrar todo el historial? Esto no se puede deshacer.")) {
+                        expenses = [];
+                        persistExpenses();
+                        renderExpenses();
+                        closeSidebar();
+                        showToast("Historial borrado");
+                    }
+                } catch (e) {
+                    expenses = [];
+                    persistExpenses();
+                    renderExpenses();
+                    closeSidebar();
+                    showToast("Historial borrado");
+                }
+            }
+
+            // --- CATEGORÍAS ---
+            function loadCategories() {
+                const saved = localStorage.getItem('yape_categories_v2');
+                if (saved) {
+                    categories = JSON.parse(saved);
+                } else {
+                    categories = ['🍔 Comida', '🚌 Pasajes', '💡 Servicios', '🛍️ Compras', '✨ Otros'];
+                }
+                updateCategorySelect();
+            }
+
+            function persistCategories() {
+                localStorage.setItem('yape_categories_v2', JSON.stringify(categories));
+                updateCategorySelect();
+            }
+
+            function updateCategorySelect() {
+                categorySelect.innerHTML = categories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
+            }
+
+            function renderCategories() {
+                categoriesListContainer.innerHTML = categories.map((cat, index) => `
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center active:scale-95 transition-transform cursor-pointer" data-index="${index}">
+                        <span class="font-semibold text-slate-700 text-lg">${cat}</span>
+                        <i class="ph ph-pencil-simple text-slate-400"></i>
+                    </div>
+                `).join('');
+
+                // Añadir listeners para edición manual
+                Array.from(categoriesListContainer.children).forEach(child => {
+                    child.addEventListener('click', function() {
+                        const idx = this.getAttribute('data-index');
+                        editCategoryPrompt(idx);
+                    });
+                });
+            }
+
+            function promptNewCategory() {
+                const newCat = window.prompt("Ingresa el nombre de la nueva categoría (Ej: 🏥 Salud)");
+                if (newCat && newCat.trim() !== '') {
+                    categories.push(newCat.trim());
+                    persistCategories();
+                    renderCategories();
+                    showToast("Categoría añadida");
+                }
+            }
+
+            function editCategoryPrompt(index) {
+                const editedCat = window.prompt("Edita el nombre de la categoría:", categories[index]);
+                if (editedCat && editedCat.trim() !== '') {
+                    categories[index] = editedCat.trim();
+                    persistCategories();
+                    renderCategories();
+                    showToast("Categoría actualizada");
+                }
+            }
+
+            // --- EXPORTAR CSV ---
+            function exportCSV() {
+                if (expenses.length === 0) {
+                    showToast("No hay datos para exportar");
+                    return;
+                }
+
+                const headers = ['Fecha', 'Hora', 'Categoría', 'Tipo', 'Monto (S/)'];
+                const rows = expenses.map(exp => {
+                    const d = new Date(exp.date);
+                    const dateStr = d.toLocaleDateString('es-PE');
+                    const timeStr = d.toLocaleTimeString('es-PE');
+                    return [dateStr, timeStr, exp.category, exp.type, exp.amount.toFixed(2)];
+                });
+
+                let csvContent = "data:text/csv;charset=utf-8," 
+                    + headers.join(",") + "\n" 
+                    + rows.map(e => e.join(",")).join("\n");
+
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `YapeTracker_${new Date().toISOString().split('T')[0]}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showToast("CSV descargado exitosamente");
+            }
+
+            // --- TOAST NOTIFICATION ---
+            function showToast(message) {
+                document.getElementById('toast-message').textContent = message;
+                toast.classList.remove('opacity-0');
+                
+                setTimeout(() => {
+                    toast.classList.add('opacity-0');
+                }, 3000);
+            }
+        });
+    </script>
+</body>
+</html>
