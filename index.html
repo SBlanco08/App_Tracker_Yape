@@ -7,13 +7,11 @@
   <title>Tracker Yape</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* Estilos base y ocultamiento de scrollbar */
     body { overscroll-behavior-y: none; }
     .no-select { user-select: none; -webkit-user-select: none; }
     ::-webkit-scrollbar { display: none; width: 0px; background: transparent; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     
-    /* Efecto difuminado y ruedas iOS */
     .wheel-container {
       mask-image: linear-gradient(to bottom, transparent, black 40%, black 60%, transparent);
       -webkit-mask-image: linear-gradient(to bottom, transparent, black 40%, black 60%, transparent);
@@ -30,7 +28,6 @@
       justify-content: center;
     }
     
-    /* Modales personalizados y transiciones */
     .modal-overlay {
       transition: opacity 0.3s ease;
       opacity: 0;
@@ -86,7 +83,7 @@
     </div>
   </aside>
 
-  <!-- Vista de Categorías (Oculta por defecto) -->
+  <!-- Vista de Categorías -->
   <div id="categories-view" class="fixed inset-0 top-16 bg-gray-50 z-20 hidden flex-col">
     <div class="p-4 flex-1 overflow-y-auto pb-24">
       <h3 class="text-gray-500 font-semibold mb-3 uppercase text-xs tracking-wider">Tus Categorías</h3>
@@ -99,7 +96,7 @@
   <button id="btn-add-expense" class="fixed bottom-6 right-6 w-14 h-14 bg-purple-600 rounded-full shadow-lg text-white text-3xl flex items-center justify-center z-10 hover:bg-purple-700 shadow-purple-500/50">+</button>
 
   <!-- Modal Interactivo iOS (Ingreso de Gasto) -->
-  <div id="expense-modal-overlay" class="fixed inset-0 bg-black/60 z-50 flex justify-center items-center opacity-0 pointer-events-none transition-opacity duration-300">
+  <div id="expense-modal-overlay" class="fixed inset-0 bg-black/60 z-50 flex justify-center items-center opacity-0 pointer-events-none transition-opacity duration-300 modal-overlay">
     <div id="expense-modal" class="bg-white w-11/12 max-w-sm rounded-3xl p-6 shadow-2xl transform scale-95 transition-transform duration-300 flex flex-col">
       <div class="flex justify-between items-center mb-6">
         <button id="btn-close-modal" class="text-gray-400 text-xl font-bold p-2">✕</button>
@@ -158,7 +155,7 @@
     </div>
   </div>
 
-  <!-- Custom Dialog Modals (Reemplazo de prompt y confirm) -->
+  <!-- Custom Dialog Modals -->
   <div id="custom-dialog" class="fixed inset-0 bg-black/60 z-[60] hidden justify-center items-center opacity-0 transition-opacity">
     <div class="bg-white w-10/12 max-w-sm rounded-2xl p-6 shadow-xl transform scale-95 transition-transform duration-200">
       <h3 id="dialog-title" class="text-lg font-bold text-gray-800 mb-2"></h3>
@@ -173,7 +170,6 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      // Estado de la app
       let transactions = JSON.parse(localStorage.getItem('yape_transactions')) || [];
       let categories = JSON.parse(localStorage.getItem('yape_categories')) || [
         { id: '1', name: '🍔 Comida' },
@@ -183,9 +179,8 @@
       ];
       let editingId = null;
       let activeActionItem = null;
-      let actionContext = 'expense'; // 'expense' o 'category'
+      let actionContext = 'expense';
 
-      // Referencias DOM
       const els = {
         mainView: document.getElementById('main-view'),
         catView: document.getElementById('categories-view'),
@@ -214,32 +209,27 @@
         btnDialogCancel: document.getElementById('btn-dialog-cancel')
       };
 
-      // Utilidades de Ventanas Personalizadas (Custom Modals)
       let dialogCallback = null;
       
       function showCustomDialog({ title, message = '', input = false, inputValue = '', confirmText = 'Aceptar', confirmColor = 'bg-purple-600', onConfirm }) {
         els.dialogTitle.textContent = title;
-        
         if (message) {
           els.dialogMessage.textContent = message;
           els.dialogMessage.classList.remove('hidden');
         } else {
           els.dialogMessage.classList.add('hidden');
         }
-
         if (input) {
           els.dialogInput.value = inputValue;
           els.dialogInput.classList.remove('hidden');
         } else {
           els.dialogInput.classList.add('hidden');
         }
-
         els.btnDialogConfirm.className = `px-4 py-2 text-white font-semibold rounded-lg ${confirmColor}`;
         els.btnDialogConfirm.textContent = confirmText;
         dialogCallback = onConfirm;
 
         els.dialog.classList.remove('hidden');
-        // Pequeño timeout para la animación
         setTimeout(() => {
           els.dialog.classList.remove('opacity-0');
           els.dialog.firstElementChild.classList.remove('scale-95');
@@ -265,7 +255,6 @@
         closeCustomDialog();
       });
 
-      // Inicialización de Ruedas
       function initWheels() {
         els.wSoles.innerHTML = '';
         els.wCents.innerHTML = '';
@@ -331,15 +320,18 @@
         }
       }
 
-      // Renderizado
       function renderCategories() {
         els.selectCat.innerHTML = categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
         els.catList.innerHTML = categories.map(c => `
-          <li class="p-4 flex items-center justify-between active:bg-gray-50 cursor-pointer" onclick="openActionSheet('${c.id}', 'category')">
+          <li class="p-4 flex items-center justify-between active:bg-gray-50 cursor-pointer category-item" data-id="${c.id}">
             <span class="text-lg font-medium text-gray-800">${c.name}</span>
             <span class="text-gray-300">⋮</span>
           </li>
         `).join('');
+
+        document.querySelectorAll('.category-item').forEach(li => {
+          li.addEventListener('click', () => openActionSheet(li.dataset.id, 'category'));
+        });
       }
 
       function formatTime(dateObj) {
@@ -356,7 +348,6 @@
           els.emptyState.classList.remove('hidden');
         } else {
           els.emptyState.classList.add('hidden');
-          // Ordenar del más reciente al más antiguo
           const sorted = [...transactions].sort((a,b) => b.timestamp - a.timestamp);
           sorted.forEach(t => {
             const isPagado = t.type === 'Pagado';
@@ -369,7 +360,7 @@
             const catName = emojiMatch ? t.category.replace(emoji, '').trim() : t.category;
 
             els.historyList.insertAdjacentHTML('beforeend', `
-              <li class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between active:scale-[0.98] transition-transform cursor-pointer" onclick="openActionSheet('${t.id}', 'expense')">
+              <li class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between active:scale-[0.98] transition-transform cursor-pointer history-item" data-id="${t.id}">
                 <div class="flex items-center gap-4">
                   <div class="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center text-2xl border border-gray-100">${emoji}</div>
                   <div>
@@ -383,12 +374,14 @@
               </li>
             `);
           });
+
+          document.querySelectorAll('.history-item').forEach(li => {
+            li.addEventListener('click', () => openActionSheet(li.dataset.id, 'expense'));
+          });
         }
       }
 
-      // Controladores de Modales
       function openModal(editMode = false) {
-        els.modalOverlay.classList.remove('pointer-events-none');
         els.modalOverlay.classList.add('active');
         els.modal.classList.remove('scale-95');
         
@@ -403,21 +396,18 @@
       
       function closeModal() {
         els.modalOverlay.classList.remove('active');
-        els.modalOverlay.classList.add('pointer-events-none');
         els.modal.classList.add('scale-95');
       }
 
-      // Action Sheet
-      window.openActionSheet = (id, context) => {
+      function openActionSheet(id, context) {
         activeActionItem = id;
         actionContext = context;
         els.sheetOverlay.classList.remove('hidden');
-        // Trigger flow
         setTimeout(() => {
           els.sheetOverlay.classList.add('opacity-100');
           els.sheet.classList.add('active');
         }, 10);
-      };
+      }
 
       function closeActionSheet() {
         els.sheet.classList.remove('active');
@@ -431,7 +421,7 @@
         if(e.target === els.sheetOverlay) closeActionSheet();
       });
 
-      els.document = document.getElementById('action-edit').addEventListener('click', () => {
+      document.getElementById('action-edit').addEventListener('click', () => {
         closeActionSheet();
         if (actionContext === 'expense') {
           const t = transactions.find(x => x.id === activeActionItem);
@@ -453,7 +443,6 @@
               inputValue: cat.name,
               onConfirm: (newName) => {
                 if (newName && newName !== cat.name) {
-                  // Actualizar transacciones pasadas
                   transactions = transactions.map(t => t.category === cat.name ? {...t, category: newName} : t);
                   cat.name = newName;
                   saveData();
@@ -466,7 +455,6 @@
 
       document.getElementById('action-delete').addEventListener('click', () => {
         closeActionSheet();
-        
         if (actionContext === 'expense') {
           showCustomDialog({
             title: '¿Eliminar Gasto?',
@@ -485,7 +473,7 @@
           if (isUsed) {
             showCustomDialog({
               title: 'Acción Bloqueada',
-              message: `No puedes eliminar la categoría "${cat.name}" porque ya tiene gastos asignados en tu historial. Edita el nombre si deseas cambiarlo.`,
+              message: `No puedes eliminar la categoría "${cat.name}" porque ya tiene gastos asignados en tu historial.`,
               confirmText: 'Entendido'
             });
           } else {
@@ -503,7 +491,6 @@
         }
       });
 
-      // Navegación Sidebar
       function toggleSidebar() {
         const isHidden = els.sidebarOverlay.classList.contains('hidden');
         if (isHidden) {
@@ -541,7 +528,6 @@
       document.getElementById('nav-home').addEventListener('click', () => switchView('home'));
       document.getElementById('nav-categories').addEventListener('click', () => switchView('cat'));
 
-      // Eventos Principales
       document.getElementById('btn-add-expense').addEventListener('click', () => openModal(false));
       document.getElementById('btn-close-modal').addEventListener('click', closeModal);
 
@@ -563,7 +549,7 @@
         toggleSidebar();
         showCustomDialog({
           title: '¿Limpiar todo el historial?',
-          message: 'Se borrarán permanentemente todos los gastos registrados. Las categorías no se verán afectadas.',
+          message: 'Se borrarán permanentemente todos los gastos registrados.',
           confirmText: 'Borrar Todo',
           confirmColor: 'bg-red-600 hover:bg-red-700',
           onConfirm: () => {
@@ -575,7 +561,7 @@
 
       document.getElementById('btn-save').addEventListener('click', () => {
         const amount = `${els.dispSoles.textContent}.${els.dispCents.textContent}`;
-        if (amount === "0.00") return; // No guardar vacíos
+        if (amount === "0.00") return;
         
         const type = els.dispContainer.classList.contains('text-green-600') ? 'Recibido' : 'Pagado';
         const category = els.selectCat.value;
@@ -600,7 +586,6 @@
         closeModal();
       });
 
-      // Exportar CSV
       document.getElementById('btn-export').addEventListener('click', () => {
         if (transactions.length === 0) return;
         let csvContent = "data:text/csv;charset=utf-8,Fecha,Hora,Tipo,Concepto,Monto\n";
@@ -612,7 +597,7 @@
             d.toLocaleDateString(),
             formatTime(d),
             t.type,
-            `"${t.category}"`, // Escapar comas
+            `"${t.category}"`,
             t.amount
           ].join(",");
           csvContent += row + "\n";
@@ -634,15 +619,10 @@
         renderHistory();
       }
 
-      // Arranque
       initWheels();
       renderCategories();
       renderHistory();
       
-      // Abrir modal por defecto al entrar
-      setTimeout(() => openModal(false), 300);
-      
-      // Service Worker (Opcional, previene errores)
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js').catch(()=>{});
       }
