@@ -6,6 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Tracker Yape</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Librería ligera para arrastrar y soltar categorías táctil -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
   <style>
     body { overscroll-behavior-y: none; }
     .no-select { user-select: none; -webkit-user-select: none; }
@@ -26,6 +28,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      width: 100%; /* Forzar centrado absoluto */
     }
     
     .modal-overlay {
@@ -46,10 +49,10 @@
     }
   </style>
 </head>
-<body class="bg-gray-100 h-screen w-screen overflow-hidden font-sans text-gray-800 no-select">
+<body class="bg-gray-100 h-screen w-screen overflow-hidden font-sans text-gray-800 no-select flex flex-col">
 
   <!-- Header Principal -->
-  <header class="bg-purple-600 text-white p-4 flex justify-between items-center shadow-md relative z-10">
+  <header class="bg-purple-600 text-white p-4 flex justify-between items-center shadow-md relative z-10 shrink-0">
     <div class="flex items-center gap-3">
       <button id="btn-menu" class="p-2 -ml-2"><span class="text-2xl">☰</span></button>
       <h1 class="text-xl font-bold">Gastos Yape</h1>
@@ -59,12 +62,26 @@
     </button>
   </header>
 
-  <!-- Historial Principal -->
-  <main id="main-view" class="h-[calc(100vh-64px)] overflow-y-auto pb-24 px-4 pt-4 relative z-0">
-    <div id="empty-state" class="text-center text-gray-400 mt-20 hidden">
+  <!-- Historial Principal y Balance -->
+  <main id="main-view" class="flex-1 overflow-y-auto pb-24 px-4 pt-4 relative z-0 flex flex-col">
+    
+    <!-- Balance General -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-5 flex justify-between items-center shrink-0">
+      <div class="w-1/2 text-center border-r border-gray-100">
+        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Recibido</p>
+        <p id="balance-in" class="text-xl font-bold text-green-600">S/0.00</p>
+      </div>
+      <div class="w-1/2 text-center">
+        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Pagado</p>
+        <p id="balance-out" class="text-xl font-bold text-red-600">S/0.00</p>
+      </div>
+    </div>
+
+    <div id="empty-state" class="text-center text-gray-400 mt-10 hidden flex-col items-center">
       <div class="text-4xl mb-2">💸</div>
       <p>No hay gastos registrados aún</p>
     </div>
+    
     <ul id="history-list" class="space-y-3"></ul>
   </main>
 
@@ -86,7 +103,10 @@
   <!-- Vista de Categorías -->
   <div id="categories-view" class="fixed inset-0 top-16 bg-gray-50 z-20 hidden flex-col">
     <div class="p-4 flex-1 overflow-y-auto pb-24">
-      <h3 class="text-gray-500 font-semibold mb-3 uppercase text-xs tracking-wider">Tus Categorías</h3>
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-gray-500 font-semibold uppercase text-xs tracking-wider">Tus Categorías</h3>
+        <span class="text-gray-400 text-[10px] uppercase font-bold flex items-center gap-1">↕️ Arrastrar para ordenar</span>
+      </div>
       <ul id="categories-list" class="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100"></ul>
     </div>
     <button id="btn-add-category" class="absolute bottom-6 right-6 w-14 h-14 bg-purple-600 rounded-full shadow-lg text-white text-3xl flex items-center justify-center hover:bg-purple-700">+</button>
@@ -105,7 +125,7 @@
       </div>
       
       <!-- Contador Gigante Dinámico -->
-      <div id="display-container" class="text-center mb-8 text-red-600 transition-colors duration-300">
+      <div id="display-container" class="text-center mb-8 text-red-600 transition-colors duration-300 flex justify-center items-center w-full">
         <span class="text-5xl font-bold tracking-tighter" id="display-sign">-</span>
         <span class="text-5xl font-bold tracking-tighter">S/</span>
         <span class="text-5xl font-bold tracking-tighter" id="display-soles">0</span>
@@ -116,12 +136,12 @@
       <!-- Selector de Ruedas -->
       <div class="relative h-44 bg-gray-50 rounded-2xl overflow-hidden mb-6 px-4">
         <div class="absolute top-1/2 left-0 w-full h-14 bg-gray-200/50 transform -translate-y-1/2 pointer-events-none border-y border-gray-300/50"></div>
-        <div class="wheel-container flex h-full justify-between items-center relative z-10">
+        <div class="wheel-container flex h-full justify-between items-center relative z-10 text-center">
           <div id="wheel-soles" class="wheel-col w-1/3 h-full overflow-y-auto no-scrollbar pt-[42px] pb-[42px]"></div>
           <div id="wheel-cents" class="wheel-col w-1/3 h-full overflow-y-auto no-scrollbar pt-[42px] pb-[42px]"></div>
           <div id="wheel-type" class="wheel-col w-1/3 h-full overflow-y-auto no-scrollbar pt-[42px] pb-[42px]">
-            <div class="wheel-item text-xl font-medium text-red-600" data-val="Pagado">Pagado</div>
-            <div class="wheel-item text-xl font-medium text-green-600" data-val="Recibido">Recibido</div>
+            <div class="wheel-item text-xl font-medium text-red-600 w-full text-center" data-val="Pagado">Pagado</div>
+            <div class="wheel-item text-xl font-medium text-green-600 w-full text-center" data-val="Recibido">Recibido</div>
           </div>
         </div>
       </div>
@@ -130,7 +150,7 @@
       <div class="mb-6">
         <label class="block text-sm font-semibold text-gray-500 mb-2">Concepto</label>
         <div class="relative">
-          <select id="select-category" class="w-full appearance-none bg-gray-100 border-none rounded-xl py-3 px-4 text-gray-800 font-medium focus:ring-2 focus:ring-purple-500 outline-none">
+          <select id="select-category" class="w-full appearance-none bg-gray-100 border-none rounded-xl py-3 px-4 text-gray-800 font-medium focus:ring-2 focus:ring-purple-500 outline-none text-center">
           </select>
           <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">▼</div>
         </div>
@@ -155,15 +175,17 @@
     </div>
   </div>
 
-  <!-- Custom Dialog Modals -->
-  <div id="custom-dialog" class="fixed inset-0 bg-black/60 z-[60] hidden justify-center items-center opacity-0 transition-opacity">
-    <div class="bg-white w-10/12 max-w-sm rounded-2xl p-6 shadow-xl transform scale-95 transition-transform duration-200">
-      <h3 id="dialog-title" class="text-lg font-bold text-gray-800 mb-2"></h3>
-      <p id="dialog-message" class="text-gray-500 text-sm mb-4 hidden"></p>
-      <input type="text" id="dialog-input" class="w-full bg-gray-100 border border-gray-200 rounded-lg p-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500 mb-4 hidden" autocomplete="off">
-      <div class="flex justify-end gap-3 mt-2">
-        <button id="btn-dialog-cancel" class="px-4 py-2 text-gray-500 font-semibold rounded-lg hover:bg-gray-100">Cancelar</button>
-        <button id="btn-dialog-confirm" class="px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700">Aceptar</button>
+  <!-- Custom Dialog Modals (Corregido para centrado absoluto) -->
+  <div id="custom-dialog" class="fixed inset-0 bg-black/60 z-[60] hidden opacity-0 transition-opacity">
+    <div class="flex items-center justify-center min-h-screen px-4">
+      <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl transform scale-95 transition-transform duration-200">
+        <h3 id="dialog-title" class="text-lg font-bold text-gray-800 mb-2"></h3>
+        <p id="dialog-message" class="text-gray-500 text-sm mb-4 hidden"></p>
+        <input type="text" id="dialog-input" class="w-full bg-gray-100 border border-gray-200 rounded-lg p-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500 mb-4 hidden" autocomplete="off">
+        <div class="flex justify-end gap-3 mt-2">
+          <button id="btn-dialog-cancel" class="px-4 py-2 text-gray-500 font-semibold rounded-lg hover:bg-gray-100">Cancelar</button>
+          <button id="btn-dialog-confirm" class="px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700">Aceptar</button>
+        </div>
       </div>
     </div>
   </div>
@@ -232,14 +254,14 @@
         els.dialog.classList.remove('hidden');
         setTimeout(() => {
           els.dialog.classList.remove('opacity-0');
-          els.dialog.firstElementChild.classList.remove('scale-95');
+          els.dialog.querySelector('.transform').classList.remove('scale-95');
           if (input) els.dialogInput.focus();
         }, 10);
       }
 
       function closeCustomDialog() {
         els.dialog.classList.add('opacity-0');
-        els.dialog.firstElementChild.classList.add('scale-95');
+        els.dialog.querySelector('.transform').classList.add('scale-95');
         setTimeout(() => {
           els.dialog.classList.add('hidden');
           dialogCallback = null;
@@ -260,14 +282,14 @@
         els.wCents.innerHTML = '';
         for(let i = 0; i <= 999; i++) {
           let div = document.createElement('div');
-          div.className = 'wheel-item text-3xl font-bold';
+          div.className = 'wheel-item text-3xl font-bold w-full text-center flex justify-center items-center';
           div.dataset.val = i;
           div.textContent = i;
           els.wSoles.appendChild(div);
         }
         for(let i = 0; i <= 90; i+=10) {
           let div = document.createElement('div');
-          div.className = 'wheel-item text-3xl font-bold';
+          div.className = 'wheel-item text-3xl font-bold w-full text-center flex justify-center items-center';
           let v = i === 0 ? '00' : i;
           div.dataset.val = v;
           div.textContent = v;
@@ -296,10 +318,10 @@
         els.dispCents.textContent = cents;
 
         if (type === 'Pagado') {
-          els.dispContainer.className = 'text-center mb-8 text-red-600 transition-colors duration-300';
+          els.dispContainer.className = 'text-center mb-8 text-red-600 transition-colors duration-300 flex justify-center items-center w-full';
           els.dispSign.textContent = '-';
         } else {
-          els.dispContainer.className = 'text-center mb-8 text-green-600 transition-colors duration-300';
+          els.dispContainer.className = 'text-center mb-8 text-green-600 transition-colors duration-300 flex justify-center items-center w-full';
           els.dispSign.textContent = '+';
         }
       }
@@ -322,15 +344,20 @@
 
       function renderCategories() {
         els.selectCat.innerHTML = categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
-        els.catList.innerHTML = categories.map(c => `
-          <li class="p-4 flex items-center justify-between active:bg-gray-50 cursor-pointer category-item" data-id="${c.id}">
-            <span class="text-lg font-medium text-gray-800">${c.name}</span>
-            <span class="text-gray-300">⋮</span>
+        els.catList.innerHTML = categories.map((c, idx) => `
+          <li class="p-4 flex items-center justify-between active:bg-gray-50 bg-white" data-id="${c.id}" data-index="${idx}">
+            <div class="flex items-center gap-3 w-full">
+              <span class="text-gray-300 text-2xl font-bold cursor-grab active:cursor-grabbing drag-handle px-2 -ml-2">☰</span>
+              <span class="text-lg font-medium text-gray-800 flex-1 truncate">${c.name}</span>
+            </div>
+            <span class="text-gray-400 text-xl px-4 py-2 -mr-4 cursor-pointer btn-cat-opts" data-id="${c.id}">⋮</span>
           </li>
         `).join('');
 
-        document.querySelectorAll('.category-item').forEach(li => {
-          li.addEventListener('click', () => openActionSheet(li.dataset.id, 'category'));
+        document.querySelectorAll('.btn-cat-opts').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            openActionSheet(btn.dataset.id, 'category');
+          });
         });
       }
 
@@ -344,12 +371,22 @@
 
       function renderHistory() {
         els.historyList.innerHTML = '';
+        
+        let tIn = 0;
+        let tOut = 0;
+
         if (transactions.length === 0) {
           els.emptyState.classList.remove('hidden');
+          els.emptyState.classList.add('flex');
         } else {
           els.emptyState.classList.add('hidden');
+          els.emptyState.classList.remove('flex');
+          
           const sorted = [...transactions].sort((a,b) => b.timestamp - a.timestamp);
           sorted.forEach(t => {
+            if(t.type === 'Recibido') tIn += parseFloat(t.amount);
+            if(t.type === 'Pagado') tOut += parseFloat(t.amount);
+            
             const isPagado = t.type === 'Pagado';
             const colorClass = isPagado ? 'text-red-600' : 'text-green-600';
             const sign = isPagado ? '-' : '+';
@@ -362,13 +399,13 @@
             els.historyList.insertAdjacentHTML('beforeend', `
               <li class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between active:scale-[0.98] transition-transform cursor-pointer history-item" data-id="${t.id}">
                 <div class="flex items-center gap-4">
-                  <div class="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center text-2xl border border-gray-100">${emoji}</div>
-                  <div>
-                    <h4 class="font-bold text-gray-800">${catName}</h4>
+                  <div class="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center text-2xl border border-gray-100 shrink-0">${emoji}</div>
+                  <div class="truncate">
+                    <h4 class="font-bold text-gray-800 truncate">${catName}</h4>
                     <p class="text-xs text-gray-400 font-medium">${date.toLocaleDateString()} • ${timeStr}</p>
                   </div>
                 </div>
-                <div class="text-right">
+                <div class="text-right pl-2">
                   <p class="font-bold text-lg tracking-tight ${colorClass}">${sign}S/${t.amount}</p>
                 </div>
               </li>
@@ -379,6 +416,9 @@
             li.addEventListener('click', () => openActionSheet(li.dataset.id, 'expense'));
           });
         }
+        
+        document.getElementById('balance-in').textContent = `S/${tIn.toFixed(2)}`;
+        document.getElementById('balance-out').textContent = `S/${tOut.toFixed(2)}`;
       }
 
       function openModal(editMode = false) {
@@ -623,9 +663,23 @@
       renderCategories();
       renderHistory();
       
+      // Inicializar drag and drop para categorías
+      Sortable.create(els.catList, {
+        handle: '.drag-handle',
+        animation: 150,
+        onEnd: function (evt) {
+          const item = categories.splice(evt.oldIndex, 1)[0];
+          categories.splice(evt.newIndex, 0, item);
+          saveData();
+        }
+      });
+      
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js').catch(()=>{});
       }
+
+      // Asegurar apertura inicial dando tiempo al renderizado de la UI
+      setTimeout(() => openModal(false), 400);
     });
   </script>
 </body>
